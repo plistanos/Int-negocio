@@ -21,11 +21,14 @@ import utility    as ut
 #     return(...)
 
 #SNN's Training 
-def train(x,y,param):    
+def train(x,y,param):  
+    rows,columns = x.shape
+    m = param['nClases']
+    d = columns
     W,V   = ut.iniWs()
     MSE = []
     
-    return(W,Costo)
+    return(W,V)
 
 # Load data to train the SNN
 def load_data_trn():

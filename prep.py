@@ -30,14 +30,12 @@ def data_norm(data):
 
 
 # # Binary Label
-def binary_labels(X,param):
-    rows,columns = X.shape
-    labels = np.zeros((rows, param['nClases']))
-    feature_vectors_per_classes = columns * param['nFrame']  
-
-    for i in range(len(labels)):
-        labels[i, i // feature_vectors_per_classes] = 1
-    return labels
+def binary_labels(i,datF,param):
+    rows,columns = datF.shape
+    label = np.zeros((rows, param['nClases']))
+    label[:,i] = 1
+    
+    return label
 
 def elementosRango(x, lower_bound, upper_bound):
     cont = 0
@@ -137,17 +135,17 @@ def apilar_features(datF,f,j):
 
 def create_dtrn_dtst(X, Y, p):
     random_X, random_Y = ut.sort_data_random(X,Y)
-
-    samples_for_training_data = int(len(random_X) * p)
+   
+    xe_ye = int(len(random_X) * p)
 
     data = {
-        'train': random_X[:samples_for_training_data, :],
-        'test': random_X[samples_for_training_data:, :],
+        'train': random_X[:xe_ye, :],
+        'test': random_X[xe_ye:, :],
     }
 
     labels = {
-        'train': random_Y[:samples_for_training_data, :],
-        'test': random_Y[samples_for_training_data:, :],
+        'train': random_Y[:xe_ye, :],
+        'test': random_Y[xe_ye:, :],
     }
 
     return data, labels
@@ -160,7 +158,6 @@ def create_features(H,param):
     X = []
     rows, columns = H[0].shape
     
-    
     for i in range(param['nClases']):
         datF = np.zeros((0,2**param['nivelDesc']*2))
         for j in range(columns):
@@ -168,10 +165,12 @@ def create_features(H,param):
             f = hankel_features(x.to_numpy(),param,columns)
             datF = np.concatenate((datF,f))
         X.extend(datF)
+        label = binary_labels(i,datF,param)
+        Y.extend(label)
     X = np.array(X)
-    Y = binary_labels(np.array(X),param)
-    print(X.shape)
-    print(Y.shape)
+    Y = np.array(Y)
+    # print(X.shape)
+    # print(Y.shape)
     X, Y = create_dtrn_dtst(X, Y, param['tasaAp'])
     return(X,Y) 
 
