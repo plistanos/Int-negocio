@@ -18,28 +18,40 @@ def load_cnf():
     param['nOcultosCapa2']   = int(diccionario[0][5])
     param['actOculta']       = int(diccionario[0][6])
     param['prTraining']      = (diccionario[0][7])
-    param['tminiBatch']      = (diccionario[0][8])
+    param['tminiBatch']      = int(diccionario[0][8])
     param['tasaAp']          = (diccionario[0][9])
     param['beta']            = (diccionario[0][10])
-    param['max_iterations']  = (diccionario[0][11])
+    param['max_iterations']  = int(diccionario[0][11])
     return(param)
 
 def sort_data_random(X, Y, by_column=False):    
+    rows, columns = X.shape
     if by_column:
-      random_indexes = np.random.permutation(X.shape[1])
-      random_X = X[:, random_indexes]
-      random_Y = Y[:, random_indexes]
+      rnd_i = np.random.permutation(columns)
+      rnd_X = X[:, rnd_i]
+      rnd_Y = Y[:, rnd_i]
     else:
-      random_indexes = np.random.permutation(X.shape[0])
-      random_X = X[random_indexes]
-      random_Y = Y[random_indexes]
+      rnd_i = np.random.permutation(rows)
+      rnd_X = X[rnd_i]
+      rnd_Y = Y[rnd_i]
     
-    return random_X, random_Y
+    return rnd_X, rnd_Y
+
 
 # Initialize weights for SNN-SGDM
-def iniWs(Param):    
-    ...
-    return(W,V)
+def iniWs(x, param):
+    A0_len = len(x)
+    w = {'w1': iniW(param['nOcultosCapa1'], A0_len)}
+    v = {'v1': np.zeros((param['nOcultosCapa1'], A0_len))}
+    if param['nOcultosCapa2'] == 0:
+        w['w2'] = iniW(param['nClases'], param['nOcultosCapa1'])
+        v['v2'] = np.zeros((param['nClases'], param['nOcultosCapa1']))
+    else:
+        w['w2'] = iniW(param['nOcultosCapa2'], param['nOcultosCapa1'])
+        v['v2'] = np.zeros((param['nOcultosCapa2'], param['nOcultosCapa1']))
+        w['w3'] = iniW(param['nClases'], param['nOcultosCapa2'])
+        v['v3'] = np.zeros((param['nClases'], param['nOcultosCapa2']))
+    return w, v
 
 # Initialize weights for one-layer    
 def iniW(next,prev):
@@ -53,17 +65,19 @@ def salida_function(z):
     return d
 
 # # Feed-forward of SNN
-def forward(x,w,v,f_act=5):
-    # Capa oculta    
-    z   = np.dot(w,x.T)
-    h   = act_function(z,f_act)
-    # Capa salida
-    z2  = np.dot(v,h)
-    d   = salida_function(z2)
-    return h,d.T
+def forward(x,w,param):
+    z = {'z1': np.dot(w['w1'],x)}
+    a = {'a1': act_function(z['z1'],param['actOculta'])}
+    z['z2'] = np.dot(w['w2'],a['a1'])
+    a['a2'] = act_function(z['z2'], param['actOculta'])
+    if param['nOcultosCapa2'] == 0:
+        return a,z
+    z['z3'] = np.dot(w['w3'],a['a2'])
+    a['a3'] = act_function(z['z3'],param['actOculta'])
+    return a,z
 
 #Activation function
-def act_function(z,f_act=1):
+def act_function(z,f_act):
     if   f_act == 1: # ReLu
         act_fun = np.maximum(0, z)
     elif f_act == 2: # L-ReLu
@@ -77,6 +91,7 @@ def act_function(z,f_act=1):
     elif f_act == 5: #Sigmoid
         act_fun = (1.0) / (1.0 + np.exp(-z))
     return act_fun
+
 # Derivatives of the activation funciton
 def derivate_act(a,f_act=1):
     if   f_act == 1: # ReLu
@@ -93,40 +108,46 @@ def derivate_act(a,f_act=1):
         der_fun = (np.exp(-a)/((1+np.exp(-a))**2))
     return der_fun
 
-# #Feed-Backward of SNN
-# def gradW(...):    
-#     ...    
-#     return(...)    
+#Feed-Backward of SNN
+def gradW(a,z,w,xe,ye,param):
+    layers = len(z)
+    al = a[f'a{layers}'] 
+    gW = {}
+    for i in reversed(range(1, layers + 1)):
+        if i == layers:
+            eL = (1 / param['tminiBatch']) * (al - ye)
+            delta = eL * derivate_act(z[f'z{i}'], 5)
+            gW[f'gW{i}'] = np.dot(delta, a[f'a{i-1}'].T)
+        else:
+            delta = eL * derivate_act(z[f'z{i}'], param['actOculta'])
+            gW[f'gW{i}'] = np.dot(delta, xe.T) if i == 1 else  np.dot(delta, a[f'a{i-1}'].T)
+        eL = np.dot(w[f'w{i}'].T, delta)   
+    cost = 1/(2 * param['tminiBatch']) * ((al - ye) ** 2)
+    return gW, cost
 
-# # Update W and V
-# def updWV_sgdm(...):
-#     ...    
-#     return(...)
+# Update W and V
+def updWV_sgdm(w,v,gW,param):
+    layers = len(w)
+    for i in range(1, layers + 1):
+        v[f'v{i}'] = param['beta'] * v[f'v{i}'] + param['tasaAp'] * gW[f'gW{i}']
+        w[f'w{i}'] = w[f'w{i}'] - v[f'v{i}']
+    return w, v
 
 # Measure
-def metricas(x,y):
-    matriz_confusion = np.zeros(shape=(y.shape[1], x.shape[1]))
-    # print("confussion_matrix: ",confussion_matrix)
-
-    for real, prediccion in zip(y, x):
-        matriz_confusion[np.argmax(real)][np.argmax(prediccion)] += 1    
+def metricas(Y,Y_predicted):
+    cm = confusion_matrix(Y, Y_predicted)
+    precision = cm.diagonal() / cm.sum(axis=0)
+    recall = cm.diagonal() / cm.sum(axis=1)
+    f_score = 2 * ((precision * recall) / (precision + recall))
+    f_score = np.nan_to_num(f_score, nan=0)
+    return cm, f_score
     
-    fscore = []
-    for i, value in enumerate(matriz_confusion):
-        TP = value[i]
-        FP = matriz_confusion.sum(axis=0)[i] - TP
-        FN = matriz_confusion.sum(axis=1)[i] - TP
-        recall = TP / (TP + FN)
-        precision = TP / (TP + FP)
-        fscore.append((2 * (precision * recall) / (precision + recall)))
-
-    fscore.append(np.array(fscore).mean())
-    pd.DataFrame(matriz_confusion).astype(int).to_csv('cmatriz.csv',index=False,header=False)
-    pd.DataFrame(fscore).to_csv('fscores.csv',index=False,header=False)
-    return (fscore)
-    
-# #Confusion matrix
-# def confusion_matrix(z,y):
-#     ...    
-#     return(cm)
+#Confusion matrix
+def confusion_matrix(Y,Y_predicted):
+    cm = np.zeros((Y.shape[0], Y.shape[0]), dtype=int)
+    for j in range(Y.shape[1]):
+        max_i_real = np.argmax(Y[:, j])
+        max_i_pred = np.argmax(Y_predicted[:, j])
+        cm[max_i_real, max_i_pred] += 1
+    return cm
 #-----------------------------------------------------------------------

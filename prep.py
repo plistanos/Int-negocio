@@ -49,11 +49,11 @@ def elementosRango(x, lower_bound, upper_bound):
 # # Fourier spectral entropy
 def entropy_spectral(X):
 
-    amplitudes = np.abs(np.fft.fft(X))
+    amplitud = np.abs(np.fft.fft(X))
 
-    I_x = int(np.sqrt(len(amplitudes)))
-    x_max = np.max(amplitudes)
-    x_min = np.min(amplitudes)
+    I_x = int(np.sqrt(len(amplitud)))
+    x_max = np.max(amplitud)
+    x_min = np.min(amplitud)
     x_range = x_max - x_min
 
     E = 0
@@ -64,8 +64,8 @@ def entropy_spectral(X):
 
     for _ in range(I_x):
         upper_bound = lower_bound + step_range
-        prob = 0 if elementosRango(amplitudes, lower_bound, upper_bound) == 0 else elementosRango(
-            amplitudes, lower_bound, upper_bound) / len(amplitudes)
+        prob = 0 if elementosRango(amplitud, lower_bound, upper_bound) == 0 else elementosRango(
+            amplitud, lower_bound, upper_bound) / len(amplitud)
         E += prob*np.log2(prob)
 
     return -E
@@ -171,7 +171,7 @@ def create_features(H,param):
     Y = np.array(Y)
     # print(X.shape)
     # print(Y.shape)
-    X, Y = create_dtrn_dtst(X, Y, param['tasaAp'])
+    X, Y = create_dtrn_dtst(X, Y, param['prTraining'])
     return(X,Y) 
 
 

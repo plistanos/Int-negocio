@@ -4,27 +4,30 @@ import utility as ut
 
 
 def save_measure(cm,Fsc):
-    ...
-    return()
+    np.savetxt("cmatriz.csv", cm, fmt="%d")
+    np.savetxt("fscores.csv", Fsc, fmt="%.10f")
 
 def load_w():
-    ...
-    return(...)
+    w = np.load('w_snn.npz')
+    return {key: w[key] for key in w.keys()}
 
 
 
 def load_data_test():
-    ...
-    return(...)
+    X = np.loadtxt("dtestX.csv", delimiter=",")
+    Y = np.loadtxt("dtestY.csv", delimiter=",")
+    return X, Y
     
 
 # Beginning ...
 def main():			
-	xv,yv  = load_data_test()
-	W      = load_w()
-	zv     = ut.forward(xv,W)      		
-	cm,Fsc = ut.metricas(yv,zv) 	
-	save_measure(cm,Fsc)
+    param = ut.load_cnf()
+    xv,yv = load_data_test()
+    W = load_w()
+    a,_ = ut.forward(xv.T,W,param)   
+    Y_predicted = a['a2'] if param['nOcultosCapa2'] == 0 else a['a3']   		
+    cm,Fsc = ut.metricas(yv.T,Y_predicted) 	
+    save_measure(cm,Fsc)
 		
 
 if __name__ == '__main__':   
